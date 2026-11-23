@@ -171,7 +171,7 @@ function App() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="Casa Miel, ir al inicio">
           <span className="brand-mark"><Icon name="coffee" size={23} /></span>
-          <span><strong>Casa Miel</strong><small>café & repostería</small></span>
+          <span><strong>Casa Miel</strong><small>café</small></span>
         </a>
         <button className="cart-trigger" onClick={() => setCartOpen(true)}>
           <Icon name="bag" size={20} /><span>Tu pedido</span>
