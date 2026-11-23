@@ -85,6 +85,10 @@ main { max-width: 1500px; margin: auto; }
 .empty-state svg { margin: 0 auto 15px; }
 .empty-state h3 { color: var(--espresso); font: 25px var(--serif); }
 .empty-state p { font-size: 13px; margin-top: 5px; }
+.catalog-status { margin: 24px 0 4px; padding: 14px 17px; border-radius: 12px; background: #eee7dc; color: var(--cocoa); font-size: 12px; }
+.catalog-status--error { background: #f7e8e3; color: #8c3f2d; }
+.sold-out-label { display: inline-block; color: #8c3f2d; font-size: 11px; font-weight: 600; margin: -6px 0 9px; }
+.add-button:disabled { opacity: .58; cursor: not-allowed; }
 
 .roulette-section { margin: 0 clamp(12px, 3vw, 46px); padding: clamp(45px, 7vw, 85px); background: var(--espresso); color: white; border-radius: 30px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 70px; overflow: hidden; position: relative; }
 .roulette-section::before { content: ''; position: absolute; width: 400px; height: 400px; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; left: -160px; top: -170px; }

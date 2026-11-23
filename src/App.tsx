@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import heroImage from './assets/casa-miel-hero.png'
+import { fetchCatalog, readCachedCatalog, type Product } from './catalog'
 
 type IconName =
   | 'bag'
@@ -42,23 +43,6 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   )
 }
 
-const categories = ['Todos', 'Cafés', 'Bebidas frías', 'Tortas', 'Galletas', 'Postres', 'Snacks']
-
-const products = [
-  { id: 1, name: 'Cappuccino de casa', description: 'Espresso doble, leche sedosa y cacao.', price: 8900, category: 'Cafés', tag: 'Favorito', image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=900&q=85' },
-  { id: 2, name: 'Latte vainilla', description: 'Vainilla natural y espuma aterciopelada.', price: 10500, category: 'Cafés', image: 'https://images.unsplash.com/photo-1561882468-9110e03e0f78?auto=format&fit=crop&w=900&q=85' },
-  { id: 3, name: 'Mocha intenso', description: 'Chocolate oscuro, espresso y leche.', price: 11500, category: 'Cafés', image: 'https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?auto=format&fit=crop&w=900&q=85' },
-  { id: 4, name: 'Cold brew naranja', description: 'Infusión lenta, naranja y hielo.', price: 9900, category: 'Bebidas frías', tag: 'Refrescante', image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=900&q=85' },
-  { id: 5, name: 'Limonada de coco', description: 'Coco cremoso, limón fresco y hielo.', price: 10900, category: 'Bebidas frías', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=900&q=85' },
-  { id: 6, name: 'Torta de zanahoria', description: 'Especias cálidas y crema de queso.', price: 12000, category: 'Tortas', image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?auto=format&fit=crop&w=900&q=85' },
-  { id: 7, name: 'Cheesecake de frutos rojos', description: 'Cremoso, con compota artesanal.', price: 13500, category: 'Postres', tag: 'Nuevo', image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=900&q=85' },
-  { id: 8, name: 'Galleta de chocolate', description: 'Centro suave y chips de chocolate.', price: 5500, category: 'Galletas', image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=900&q=85' },
-  { id: 9, name: 'Brownie de cacao', description: 'Chocolate al 70% y escamas de sal.', price: 7500, category: 'Postres', image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=900&q=85' },
-  { id: 10, name: 'Croissant de almendras', description: 'Hojaldre crujiente y crema de almendra.', price: 8000, category: 'Snacks', tag: 'Horneado hoy', image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=900&q=85' },
-  { id: 11, name: 'Torta de chocolate', description: 'Bizcocho húmedo y ganache de cacao.', price: 12500, category: 'Tortas', image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=900&q=85' },
-  { id: 12, name: 'Affogato', description: 'Helado de vainilla bañado en espresso.', price: 9500, category: 'Postres', image: 'https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=900&q=85' },
-]
-
 const money = (value: number) => `$ ${new Intl.NumberFormat('es-CO').format(value)}`
 
 function Quantity({ value, onChange, compact = false }: { value: number; onChange: (value: number) => void; compact?: boolean }) {
@@ -71,7 +55,7 @@ function Quantity({ value, onChange, compact = false }: { value: number; onChang
   )
 }
 
-function ProductCard({ product, quantity, onAdd, onQuantity }: { product: typeof products[number]; quantity: number; onAdd: () => void; onQuantity: (value: number) => void }) {
+function ProductCard({ product, quantity, onAdd, onQuantity }: { product: Product; quantity: number; onAdd: () => void; onQuantity: (value: number) => void }) {
   return (
     <article className="product-card">
       <div className="product-image-wrap">
@@ -84,10 +68,11 @@ function ProductCard({ product, quantity, onAdd, onQuantity }: { product: typeof
           <span className="product-price">{money(product.price)}</span>
         </div>
         <p>{product.description}</p>
+        {!product.available && <span className="sold-out-label">Agotado</span>}
         {quantity > 0 ? (
           <Quantity value={quantity} onChange={onQuantity} />
         ) : (
-          <button className="add-button" onClick={onAdd}>Agregar <Icon name="plus" size={17} /></button>
+          <button className="add-button" onClick={onAdd} disabled={!product.available}>{product.available ? 'Agregar' : 'No disponible'} {product.available && <Icon name="plus" size={17} />}</button>
         )}
       </div>
     </article>
@@ -97,11 +82,56 @@ function ProductCard({ product, quantity, onAdd, onQuantity }: { product: typeof
 function App() {
   const [category, setCategory] = useState('Todos')
   const [query, setQuery] = useState('')
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const [cart, setCart] = useState<Record<string, number>>({})
+  const [catalog, setCatalog] = useState(() => readCachedCatalog() ?? { categories: [], products: [] })
+  const [loading, setLoading] = useState(catalog.products.length === 0)
+  const [catalogError, setCatalogError] = useState('')
+  const [priceNotice, setPriceNotice] = useState<{ product: Product; previous: number }[]>([])
+  const [showPriceNotice, setShowPriceNotice] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
-  const [recommended, setRecommended] = useState(products[9])
+  const [recommendedId, setRecommendedId] = useState<string | null>(null)
   const [spinning, setSpinning] = useState(false)
+  const cartRef = useRef(cart)
+  const catalogRef = useRef(catalog)
+  cartRef.current = cart
+  catalogRef.current = catalog
+
+  useEffect(() => {
+    let mounted = true
+    let requestId = 0
+    const refresh = async () => {
+      const currentRequest = ++requestId
+      if (document.visibilityState === 'visible' && mounted) setLoading(true)
+      try {
+        const nextCatalog = await fetchCatalog()
+        if (!mounted || currentRequest !== requestId) return
+        setCatalog(() => {
+          const previous = catalogRef.current
+          const changed = Object.entries(cartRef.current).flatMap(([id]) => {
+            const oldProduct = previous.products.find((product) => product.id === id)
+            const newProduct = nextCatalog.products.find((product) => product.id === id)
+            return oldProduct && newProduct && oldProduct.price !== newProduct.price ? [{ product: newProduct, previous: oldProduct.price }] : []
+          })
+          if (changed.length) setPriceNotice((existing) => [...existing.filter((item) => !changed.some((change) => change.product.id === item.product.id)), ...changed])
+          return nextCatalog
+        })
+        setCatalogError('')
+      } catch (error) {
+        if (mounted && currentRequest === requestId) setCatalogError(error instanceof Error ? error.message : 'No fue posible actualizar el menú.')
+      } finally { if (mounted && currentRequest === requestId) setLoading(false) }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh() }
+    void refresh()
+    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, 5 * 60 * 1000)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => { mounted = false; requestId++; window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible) }
+  }, [])
+
+  const products = catalog.products
+  const categories = ['Todos', ...catalog.categories.map((item) => item.name)]
+  const recommended = products.find((item) => item.id === recommendedId && item.available) ?? products.find((item) => item.available)
 
   const filtered = useMemo(() => products.filter((product) => {
     const matchesCategory = category === 'Todos' || product.category === category
@@ -113,7 +143,9 @@ function App() {
   const totalItems = Object.values(cart).reduce((sum, amount) => sum + amount, 0)
   const total = cartItems.reduce((sum, product) => sum + product.price * cart[product.id], 0)
 
-  const updateQuantity = (id: number, amount: number) => {
+  const updateQuantity = (id: string, amount: number) => {
+    const product = products.find((item) => item.id === id)
+    if (amount > 0 && product && !product.available) return
     setCart((current) => {
       if (amount <= 0) {
         const next = { ...current }
@@ -128,8 +160,8 @@ function App() {
     if (spinning) return
     setSpinning(true)
     window.setTimeout(() => {
-      const options = products.filter((product) => product.id !== recommended.id)
-      setRecommended(options[Math.floor(Math.random() * options.length)])
+      const options = products.filter((product) => product.available && product.id !== recommended?.id)
+      if (options.length) setRecommendedId(options[Math.floor(Math.random() * options.length)].id)
       setSpinning(false)
     }, 850)
   }
@@ -178,6 +210,7 @@ function App() {
             </div>
           </div>
 
+          {loading && products.length === 0 ? <div className="catalog-status" role="status">Cargando el menú…</div> : catalogError && products.length === 0 ? <div className="catalog-status catalog-status--error" role="alert">No pudimos cargar el menú. {catalogError}</div> : catalogError ? <div className="catalog-status" role="status">Mostrando el último menú guardado. No se pudo actualizar: {catalogError}</div> : loading ? <div className="catalog-status" role="status">Actualizando el menú…</div> : null}
           {filtered.length > 0 ? (
             <div className="product-grid">
               {filtered.map((product) => (
@@ -202,9 +235,9 @@ function App() {
               <div><Icon name="sparkles" size={24} /></div>
             </div>
             <div className="recommendation-result">
-              <img src={recommended.image} alt="" />
+              {recommended ? <><img src={recommended.image} alt="" />
               <div><small>Hoy te recomendamos</small><strong>{recommended.name}</strong><span>{money(recommended.price)}</span></div>
-              <button onClick={() => updateQuantity(recommended.id, (cart[recommended.id] || 0) + 1)} aria-label={`Agregar ${recommended.name}`}><Icon name="plus" size={18} /></button>
+              <button onClick={() => updateQuantity(recommended.id, (cart[recommended.id] || 0) + 1)} aria-label={`Agregar ${recommended.name}`}><Icon name="plus" size={18} /></button></> : <p>No hay productos disponibles para recomendar.</p>}
             </div>
           </div>
         </section>
@@ -269,7 +302,7 @@ function App() {
           <div className="cart-footer">
             <div className="total-line"><span>Total a pagar</span><strong>{money(total)} <small>COP</small></strong></div>
             <p>El pago se realiza directamente en el restaurante.</p>
-            <button className="waiter-button" onClick={() => setOrderOpen(true)}>Mostrar pedido al mesero <Icon name="arrow" size={18} /></button>
+            <button className="waiter-button" onClick={() => priceNotice.length ? setShowPriceNotice(true) : setOrderOpen(true)}>Mostrar pedido al mesero <Icon name="arrow" size={18} /></button>
             <a className="waiting-link" href="https://artsandculture.google.com/play" target="_blank" rel="noreferrer"><Icon name="game" size={20} /><span><small>Mientras preparamos tu pedido</small>Juega mientras esperas</span><Icon name="arrow" size={17} /></a>
           </div>
         )}
@@ -291,6 +324,7 @@ function App() {
           </div>
         </div>
       )}
+      {showPriceNotice && <div className="order-modal" role="dialog" aria-modal="true" aria-labelledby="price-notice-title"><div className="order-sheet"><button className="modal-close" onClick={() => setShowPriceNotice(false)} aria-label="Cerrar aviso"><Icon name="x" /></button><span className="section-kicker">Precios actualizados</span><h2 id="price-notice-title">Revisa tu pedido</h2><p className="order-intro">El precio de algunos productos cambió. El total ya refleja el catálogo vigente.</p><div className="order-list">{priceNotice.map(({ product, previous }) => <div key={product.id}><span>{product.name}: {money(previous)} → {money(product.price)}</span></div>)}</div><button className="waiter-button" onClick={() => { setShowPriceNotice(false); setPriceNotice([]); setOrderOpen(true) }}>Entendido, ver pedido <Icon name="arrow" size={18} /></button></div></div>}
     </div>
   )
 }
