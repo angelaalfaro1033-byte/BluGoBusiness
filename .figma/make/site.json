@@ -1,0 +1,10 @@
+{
+  "description": "Explore a café menu, filter dishes, build an order to show the server, and enjoy recommendations, games, reviews, and social links while you wait.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
