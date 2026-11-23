@@ -137,7 +137,7 @@ function App() {
     const matchesCategory = category === 'Todos' || product.category === category
     const normalized = `${product.name} ${product.description}`.toLowerCase()
     return matchesCategory && normalized.includes(query.toLowerCase())
-  }), [category, query])
+  }), [products, category, query])
 
   const cartItems = products.filter((product) => cart[product.id])
   const totalItems = Object.values(cart).reduce((sum, amount) => sum + amount, 0)
